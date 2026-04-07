@@ -89,12 +89,42 @@
                 <button class="btn btn-icon" id="btnImport" title="Importer les données">
                     <i class="fas fa-upload"></i>
                 </button>
+                <div class="dropdown" style="position: relative; display: inline-block;">
+                    <button class="btn btn-icon" id="btnExportBacklog" title="Exporter backlog">
+                        <i class="fas fa-file-export"></i>
+                    </button>
+                    <div class="dropdown-menu" id="exportBacklogMenu" style="display: none;">
+                        <button onclick="exportBacklogCSV()"><i class="fas fa-file-excel"></i> Export Excel (CSV)</button>
+                        <button onclick="exportBacklogPDF()"><i class="fas fa-file-pdf"></i> Export PDF</button>
+                    </div>
+                </div>
+                <div class="focus-mode-selector">
+                    <button class="btn btn-icon" id="btnFocusMode" title="Mode focus">
+                        <i class="fas fa-user-circle"></i>
+                    </button>
+                    <select id="focusMemberSelect" style="display:none;">
+                        <option value="">Tous les membres</option>
+                    </select>
+                </div>
                 <button class="btn btn-primary" id="btnAddMain">
                     <i class="fas fa-plus"></i> Nouveau
                 </button>
-                <div class="notifications">
-                    <i class="fas fa-bell"></i>
-                    <span class="badge" id="notifBadge">0</span>
+                <div class="notifications" id="notificationsWrapper">
+                    <button class="btn btn-icon" id="btnNotifications" title="Notifications">
+                        <i class="fas fa-bell"></i>
+                        <span class="badge" id="notifBadge">0</span>
+                    </button>
+                    <div class="notifications-dropdown" id="notificationsDropdown" style="display: none;">
+                        <div class="notifications-header">
+                            <h3>Notifications</h3>
+                            <button class="btn-clear-notifs" id="btnClearNotifs" title="Tout marquer comme lu">
+                                <i class="fas fa-check-double"></i>
+                            </button>
+                        </div>
+                        <div class="notifications-content" id="notificationsContent">
+                            <!-- Contenu des notifications généré dynamiquement -->
+                        </div>
+                    </div>
                 </div>
             </div>
         </header>
@@ -217,6 +247,7 @@
                         <option value="all">Tous les statuts</option>
                         <option value="à faire">À faire</option>
                         <option value="en cours">En cours</option>
+                        <option value="bloqué">🚫 Bloqué</option>
                         <option value="terminé">Terminé</option>
                     </select>
                     <select id="filterTaskPriority" onchange="renderTasks()">
@@ -244,6 +275,13 @@
                     </div>
                     <div class="kanban-cards" id="cards-inprogress" ondragover="allowDrop(event)" ondrop="drop(event, 'en cours')"></div>
                 </div>
+                <div class="kanban-col blocked-column" id="col-blocked">
+                    <div class="kanban-col-header">
+                        <span class="col-title">🚫 Bloqué</span>
+                        <span class="col-count" id="count-blocked">0</span>
+                    </div>
+                    <div class="kanban-cards" id="cards-blocked" ondragover="allowDrop(event)" ondrop="drop(event, 'bloqué')"></div>
+                </div>
                 <div class="kanban-col" id="col-done">
                     <div class="kanban-col-header">
                         <span class="col-title">Terminé</span>
@@ -266,6 +304,7 @@
                     <button class="btn btn-outline" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
                     <h2 id="calendarTitle"></h2>
                     <button class="btn btn-outline" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+                    <button class="btn btn-primary" id="todayBtn" style="margin-left: auto;"><i class="fas fa-calendar-day"></i> Aujourd'hui</button>
                 </div>
                 <div class="calendar-grid">
                     <div class="calendar-day-name">Lun</div>
@@ -398,10 +437,43 @@
                             Date de déploiement en production (optionnel)
                         </small>
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Budget (€)</label>
+                            <input type="number" id="projectBudget" min="0" step="100" placeholder="Ex: 50000">
+                            <small style="color: var(--text-light); font-size: 0.85rem; display: block; margin-top: 4px;">
+                                Budget alloué au projet (optionnel)
+                            </small>
+                        </div>
+                        <div class="form-group">
+                            <label>Dépenses actuelles (€)</label>
+                            <input type="number" id="projectActualSpent" min="0" step="100" value="0" placeholder="Ex: 15000">
+                            <small style="color: var(--text-light); font-size: 0.85rem; display: block; margin-top: 4px;">
+                                Montant déjà dépensé
+                            </small>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label>Membres de l'équipe</label>
                         <div class="member-checkboxes" id="memberCheckboxes"></div>
                     </div>
+                    
+                    <!-- Section Liens SharePoint -->
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; justify-content: space-between;">
+                            <span><i class="fas fa-link"></i> Liens SharePoint / Documents</span>
+                            <button type="button" class="btn btn-sm btn-primary" onclick="addProjectLink()" style="font-size: 0.8rem; padding: 4px 12px;">
+                                <i class="fas fa-plus"></i> Ajouter un lien
+                            </button>
+                        </label>
+                        <small style="color: var(--text-light); display: block; margin-bottom: 12px;">
+                            Organisez vos liens avec des chemins (ex: Projet/Layout/Traduction)
+                        </small>
+                        <div id="projectLinksContainer" style="display: flex; flex-direction: column; gap: 8px;">
+                            <!-- Les liens seront ajoutés ici dynamiquement -->
+                        </div>
+                    </div>
+                    
                     <div class="form-group">
                         <label>Couleur du projet</label>
                         <div class="color-picker" id="colorPicker">
@@ -432,50 +504,216 @@
             <div class="modal-body">
                 <form id="formTask">
                     <input type="hidden" id="taskId">
-                    <div class="form-group">
-                        <label>Nom de la tâche *</label>
-                        <input type="text" id="taskName" placeholder="Ex: Créer la maquette" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea id="taskDesc" placeholder="Description de la tâche..." rows="2"></textarea>
-                    </div>
-                    <div class="form-row">
+                    
+                    <!-- 📋 SECTION 1: INFORMATIONS DE BASE -->
+                    <div class="form-section">
+                        <h3 class="section-title"><i class="fas fa-info-circle"></i> Informations de base</h3>
+                        
                         <div class="form-group">
-                            <label>Projet</label>
-                            <select id="taskProject"></select>
+                            <label>Titre de la tâche *</label>
+                            <input type="text" id="taskName" placeholder="Ex: Créer formulaire de connexion" required>
                         </div>
+                        
+                        <div class="form-group">
+                            <label>Description</label>
+                            <textarea id="taskDesc" placeholder="Décrivez ce qu'il faut faire concrètement..." rows="3"></textarea>
+                        </div>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Type de tâche *</label>
+                                <select id="taskType">
+                                    <option value="feature">✨ Feature</option>
+                                    <option value="bug">🐛 Bug</option>
+                                    <option value="tech">⚙️ Tech</option>
+                                    <option value="amélioration">📈 Amélioration</option>
+                                    <option value="doc">📝 Documentation</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Projet *</label>
+                                <select id="taskProject"></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 🧱 SECTION 2: HIÉRARCHIE (Epic → US → Tâche) -->
+                    <div class="form-section">
+                        <h3 class="section-title"><i class="fas fa-sitemap"></i> Hiérarchie</h3>
+                        <p class="section-help">Epic → User Story → Tâche</p>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>📦 Epic</label>
+                                <input type="text" id="taskEpic" placeholder="Ex: Gestion des utilisateurs">
+                                <small>Objectif global du projet</small>
+                            </div>
+                            <div class="form-group">
+                                <label>👤 User Story</label>
+                                <input type="text" id="taskUserStory" placeholder="Ex: En tant que...">
+                                <small>Besoin utilisateur</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 🧭 SECTION 3: ORGANISATION -->
+                    <div class="form-section">
+                        <h3 class="section-title"><i class="fas fa-tags"></i> Organisation</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Domaine</label>
+                                <select id="taskDomain">
+                                    <option value="">Sélectionner...</option>
+                                    <option value="Frontend">🎨 Frontend</option>
+                                    <option value="Backend">⚡ Backend</option>
+                                    <option value="Infrastructure">🏗️ Infrastructure</option>
+                                    <option value="Design">🎯 Design</option>
+                                    <option value="Data">📊 Data</option>
+                                    <option value="DevOps">🔧 DevOps</option>
+                                    <option value="QA">✅ QA/Tests</option>
+                                    <option value="Autre">📌 Autre</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Sous-domaine</label>
+                                <input type="text" id="taskSubdomain" placeholder="Ex: API REST, Login, UI...">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 🚦 SECTION 4: STATUT & PRIORITÉ -->
+                    <div class="form-section">
+                        <h3 class="section-title"><i class="fas fa-traffic-light"></i> Statut & Priorité</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Statut *</label>
+                                <select id="taskStatus" onchange="toggleBlockedReason()">
+                                    <option value="à faire">📝 À faire</option>
+                                    <option value="en cours">⏳ En cours</option>
+                                    <option value="bloqué">🚫 Bloqué</option>
+                                    <option value="terminé">✅ Terminé</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Priorité *</label>
+                                <select id="taskPriority">
+                                    <option value="basse">🟢 Basse</option>
+                                    <option value="moyenne">🟠 Moyenne</option>
+                                    <option value="haute">🔴 Haute</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-group" id="blockedReasonGroup" style="display:none;">
+                            <label>🚫 Raison du blocage</label>
+                            <textarea id="blockedReason" rows="2" placeholder="Expliquez pourquoi cette tâche est bloquée..."></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 👤 SECTION 5: ASSIGNATION & DATES -->
+                    <div class="form-section">
+                        <h3 class="section-title"><i class="fas fa-calendar-user"></i> Assignation & Dates</h3>
+                        
                         <div class="form-group">
                             <label>Assigné à</label>
                             <select id="taskAssignee"></select>
                         </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Statut</label>
-                            <select id="taskStatus">
-                                <option value="à faire">À faire</option>
-                                <option value="en cours">En cours</option>
-                                <option value="terminé">Terminé</option>
-                            </select>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Date de début</label>
+                                <input type="date" id="taskStartDate">
+                            </div>
+                            <div class="form-group">
+                                <label>Date d'échéance</label>
+                                <input type="date" id="taskDue">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label>Priorité</label>
-                            <select id="taskPriority">
-                                <option value="basse">Basse</option>
-                                <option value="moyenne">Moyenne</option>
-                                <option value="haute">Haute</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Date d'échéance</label>
-                            <input type="date" id="taskDue">
-                        </div>
+                        
                         <div class="form-group">
                             <label>Progression (%)</label>
-                            <input type="number" id="taskProgress" min="0" max="100" value="0">
+                            <input type="range" id="taskProgress" min="0" max="100" value="0" 
+                                   oninput="document.getElementById('progressValue').textContent = this.value + '%'">
+                            <div style="text-align: center; margin-top: 8px; font-weight: 600; color: var(--primary);">
+                                <span id="progressValue">0%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 💡 SECTION 6: ANALYSE (Hypothèse/Solution) -->
+                    <div class="form-section">
+                        <h3 class="section-title"><i class="fas fa-lightbulb"></i> Analyse</h3>
+                        
+                        <div class="form-group">
+                            <label>💡 Hypothèse / Problème</label>
+                            <textarea id="taskHypothesis" rows="2" placeholder="Quel est le problème à résoudre ? Quelle hypothèse teste-t-on ?"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>✨ Solution proposée</label>
+                            <textarea id="taskSolution" rows="2" placeholder="Comment va-t-on résoudre ce problème ?"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- ⭐ SECTION 7: CRITÈRES D'ACCEPTATION (Important!) -->
+                    <div class="form-section form-section-important">
+                        <h3 class="section-title"><i class="fas fa-check-double"></i> Critères d'acceptation</h3>
+                        <p class="section-help">⭐ Conditions pour que la tâche soit considérée comme terminée</p>
+                        
+                        <div class="form-group">
+                            <label>Critères ✅</label>
+                            <textarea id="taskAcceptanceCriteria" rows="4" placeholder="Liste des critères d'acceptation :
+- [ ] L'utilisateur peut se connecter
+- [ ] Message d'erreur si mauvais mot de passe
+- [ ] Redirection vers le tableau de bord"></textarea>
+                            <small style="color: var(--warning);">⚠️ Sans critères clairs = flou total sur la définition de "terminé"</small>
+                        </div>
+                    </div>
+
+                    <!-- ⏱️ SECTION 8: ESTIMATION -->
+                    <div class="form-section">
+                        <h3 class="section-title"><i class="fas fa-stopwatch"></i> Estimation</h3>
+                        
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Jours/Homme (JH)</label>
+                                <input type="number" id="taskEstimationDays" min="0" step="0.5" placeholder="Ex: 3">
+                            </div>
+                            <div class="form-group">
+                                <label>Heures</label>
+                                <input type="number" id="taskEstimationHours" min="0" step="0.5" placeholder="Ex: 5.5">
+                            </div>
+                            <div class="form-group">
+                                <label>Story Points</label>
+                                <select id="taskStoryPoints">
+                                    <option value="">-</option>
+                                    <option value="1">1</option>
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="5">5</option>
+                                    <option value="8">8</option>
+                                    <option value="13">13</option>
+                                    <option value="21">21</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ⚠️ SECTION 9: RISQUES & DÉPENDANCES -->
+                    <div class="form-section">
+                        <h3 class="section-title"><i class="fas fa-exclamation-triangle"></i> Risques & Dépendances</h3>
+                        
+                        <div class="form-group">
+                            <label>⚠️ Risques identifiés</label>
+                            <textarea id="taskRisks" rows="2" placeholder="Quels risques peuvent bloquer cette tâche ?"></textarea>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>🔗 Dépendances</label>
+                            <input type="text" id="taskDependencies" placeholder="Ex: Tâche #123, #456 (IDs séparés par des virgules)">
+                            <small>Cette tâche dépend d'autres tâches (IDs séparés par des virgules)</small>
                         </div>
                     </div>
                 </form>
@@ -530,6 +768,39 @@
             <div class="modal-footer">
                 <button class="btn btn-outline" onclick="closeModal('modalMember')">Annuler</button>
                 <button class="btn btn-primary" onclick="saveMember()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Liens SharePoint -->
+    <div class="modal-overlay" id="modalProjectLinks">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="projectLinksModalTitle">Liens SharePoint</h2>
+                <button class="modal-close" onclick="closeModal('modalProjectLinks')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div id="projectLinksListContainer"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalProjectLinks')">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Détails Tâche -->
+    <div class="modal-overlay" id="modalTaskView">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="taskViewTitle">Détails de la tâche</h2>
+                <button class="modal-close" onclick="closeModal('modalTaskView')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="max-height: 75vh; overflow-y: auto;">
+                <div id="taskViewContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalTaskView')">Fermer</button>
+                <button class="btn btn-primary" id="btnEditTaskFromView" onclick="editTaskFromView()">Modifier</button>
             </div>
         </div>
     </div>

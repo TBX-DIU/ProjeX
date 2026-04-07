@@ -10,9 +10,34 @@ class Task {
         this.assignee = data.assignee || null;
         this.status = data.status || 'à faire';
         this.priority = data.priority || 'moyenne';
+        this.blockedReason = data.blockedReason || null;
         this.dueDate = data.dueDate || null;
         this.progress = data.progress || 0;
         this.tags = data.tags || [];
+        
+        // Champs backlog - Hiérarchie
+        this.epic = data.epic || '';
+        this.userStory = data.userStory || '';
+        
+        // Champs backlog - Organisation
+        this.type = data.type || 'feature'; // feature, bug, tech, amélioration, doc
+        this.domain = data.domain || '';
+        this.subdomain = data.subdomain || '';
+        
+        // Champs backlog - Analyse
+        this.hypothesis = data.hypothesis || '';
+        this.solution = data.solution || '';
+        this.acceptanceCriteria = data.acceptanceCriteria || '';
+        this.risks = data.risks || '';
+        
+        // Champs backlog - Estimation
+        this.estimationDays = data.estimationDays || null;
+        this.estimationHours = data.estimationHours || null;
+        this.storyPoints = data.storyPoints || null;
+        
+        // Champs backlog - Dates
+        this.startDate = data.startDate || null;
+        
         this.dependencies = data.dependencies || [];
         this.estimatedTime = data.estimatedTime || null;
         this.actualTime = data.actualTime || null;

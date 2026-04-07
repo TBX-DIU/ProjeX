@@ -86,21 +86,31 @@ class App {
                 description: "Refonte complète du site vitrine de l'entreprise.",
                 status: "en cours", priority: "haute",
                 startDate: "2026-02-01", endDate: "2026-06-30", releaseDate: "2026-05-15",
-                members: [1, 2, 3], progress: 65, tags: ['web', 'design']
+                members: [1, 2, 3], progress: 65, tags: ['web', 'design'],
+                links: [
+                    { path: "Projet/Design", label: "Maquettes Figma", url: "https://sharepoint.com/sites/projets/design/maquettes" },
+                    { path: "Projet/Dev", label: "Repository GitHub", url: "https://github.com/company/site-web" },
+                    { path: "Projet/Docs", label: "Cahier des charges", url: "https://sharepoint.com/sites/projets/docs/cdc.pdf" }
+                ]
             }),
             new Project({
                 id: 2, name: "Application Mobile", color: "#10b981",
                 description: "Développement d'une application iOS et Android.",
                 status: "en cours", priority: "haute",
                 startDate: "2026-03-01", endDate: "2026-09-30", releaseDate: "2026-08-15",
-                members: [1, 4], progress: 30, tags: ['mobile', 'dev']
+                members: [1, 4], progress: 30, tags: ['mobile', 'dev'],
+                links: [
+                    { path: "Mobile/Layout", label: "Wireframes", url: "https://sharepoint.com/sites/mobile/layout" },
+                    { path: "Mobile/Layout/Traduction", label: "Fichiers de traduction", url: "https://sharepoint.com/sites/mobile/i18n" }
+                ]
             }),
             new Project({
                 id: 3, name: "Campagne Marketing", color: "#f59e0b",
                 description: "Lancement de la campagne publicitaire Q2.",
                 status: "planifié", priority: "moyenne",
                 startDate: "2026-05-01", endDate: "2026-07-31",
-                members: [3, 5], progress: 0, tags: ['marketing']
+                members: [3, 5], progress: 0, tags: ['marketing'],
+                links: []
             })
         ];
     }
@@ -182,6 +192,47 @@ class App {
     }
 
     /**
+     * Basculer le mode focus
+     */
+    toggleFocusMode() {
+        const select = document.getElementById('focusMemberSelect');
+        const btn = document.getElementById('btnFocusMode');
+        
+        if (select.style.display === 'none') {
+            // Activer le mode focus
+            this.updateFocusMemberSelect();
+            select.style.display = 'block';
+            btn.classList.add('active');
+            notificationService.info('Mode focus activé - Sélectionnez un membre');
+        } else {
+            // Désactiver le mode focus
+            select.style.display = 'none';
+            select.value = '';
+            btn.classList.remove('active');
+            store.set('ui.focusMemberId', null);
+            this.renderCurrentPage();
+            notificationService.success('Mode focus désactivé');
+        }
+    }
+
+    /**
+     * Mettre à jour le select des membres pour le mode focus
+     */
+    updateFocusMemberSelect() {
+        const select = document.getElementById('focusMemberSelect');
+        if (!select) return;
+
+        const members = store.state.members;
+        select.innerHTML = '<option value="">Tous les membres</option>' +
+            members.map(m => `<option value="${m.id}">${m.firstName} ${m.lastName}</option>`).join('');
+        
+        const currentFocus = store.get('ui.focusMemberId');
+        if (currentFocus) {
+            select.value = currentFocus;
+        }
+    }
+
+    /**
      * Initialiser la sidebar
      */
     initSidebar() {
@@ -248,6 +299,8 @@ class App {
             if (page === 'projects') this.openProjectModal();
             else if (page === 'tasks') this.openTaskModal();
             else if (page === 'team') this.openMemberModal();
+            else if (page === 'calendar') this.openTaskModal(); // Créer une tâche depuis le calendrier
+            else if (page === 'dashboard') this.openProjectModal(); // Créer un projet depuis le dashboard
         });
 
         // Thème
@@ -261,6 +314,47 @@ class App {
 
         // Import
         document.getElementById('btnImport')?.addEventListener('click', () => this.importData());
+
+        // Export Backlog
+        document.getElementById('btnExportBacklog')?.addEventListener('click', () => {
+            const menu = document.getElementById('exportBacklogMenu');
+            menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Fermer le menu si on clique ailleurs
+        document.addEventListener('click', (e) => {
+            const menu = document.getElementById('exportBacklogMenu');
+            const btn = document.getElementById('btnExportBacklog');
+            if (menu && !menu.contains(e.target) && !btn.contains(e.target)) {
+                menu.style.display = 'none';
+            }
+            
+            // Fermer le dropdown notifications si on clique ailleurs
+            const notifDropdown = document.getElementById('notificationsDropdown');
+            const notifBtn = document.getElementById('btnNotifications');
+            const notifWrapper = document.getElementById('notificationsWrapper');
+            if (notifDropdown && !notifWrapper.contains(e.target)) {
+                notifDropdown.style.display = 'none';
+            }
+        });
+
+        // Notifications
+        document.getElementById('btnNotifications')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggleNotifications();
+        });
+
+        document.getElementById('btnClearNotifs')?.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.clearNotifications();
+        });
+
+        // Mode Focus
+        document.getElementById('btnFocusMode')?.addEventListener('click', () => this.toggleFocusMode());
+        document.getElementById('focusMemberSelect')?.addEventListener('change', (e) => {
+            store.set('ui.focusMemberId', e.target.value ? parseInt(e.target.value) : null);
+            this.renderCurrentPage();
+        });
     }
 
     /**
@@ -557,6 +651,14 @@ class App {
                         </div>
                         ${p.endDate ? `<p style="font-size:.75rem;color:var(--text-light);margin-top:8px"><i class="fas fa-calendar-alt" style="margin-right:4px"></i>Échéance : ${formatDate(p.endDate)}</p>` : ""}
                         ${p.releaseDate ? `<p style="font-size:.75rem;color:#ef4444;margin-top:4px;font-weight:600"><i class="fas fa-rocket" style="margin-right:4px"></i>MEP : ${formatDate(p.releaseDate)}</p>` : ""}
+                        ${p.links && p.links.length > 0 ? `
+                            <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);">
+                                <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); openProjectLinks(${p.id})" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                    <i class="fas fa-link"></i>
+                                    <span>Voir les liens SharePoint (${p.links.length})</span>
+                                </button>
+                            </div>
+                        ` : ''}
                     </div>
                 </div>
             `;
@@ -571,29 +673,34 @@ class App {
         const statusFilter = document.getElementById("filterTaskStatus")?.value || 'all';
         const priorityFilter = document.getElementById("filterTaskPriority")?.value || 'all';
         const projectFilter = document.getElementById("filterTaskProject")?.value || 'all';
+        const focusMemberId = store.get('ui.focusMemberId');
 
         let filtered = store.state.tasks.filter(t => {
             const matchStatus = statusFilter === "all" || t.status === statusFilter;
             const matchPriority = priorityFilter === "all" || t.priority === priorityFilter;
             const matchProject = projectFilter === "all" || t.project == projectFilter;
-            return matchStatus && matchPriority && matchProject;
+            const matchFocus = !focusMemberId || t.assignee === focusMemberId;
+            return matchStatus && matchPriority && matchProject && matchFocus;
         });
 
         const columns = {
             'à faire': filtered.filter(t => t.status === 'à faire'),
             'en cours': filtered.filter(t => t.status === 'en cours'),
+            'bloqué': filtered.filter(t => t.status === 'bloqué'),
             'terminé': filtered.filter(t => t.status === 'terminé')
         };
 
         // Mettre à jour les compteurs
         document.getElementById('count-todo').textContent = columns['à faire'].length;
         document.getElementById('count-inprogress').textContent = columns['en cours'].length;
+        document.getElementById('count-blocked').textContent = columns['bloqué'].length;
         document.getElementById('count-done').textContent = columns['terminé'].length;
 
         // Rendre les cartes
         Object.keys(columns).forEach(status => {
             const containerId = status === 'à faire' ? 'cards-todo' : 
-                               status === 'en cours' ? 'cards-inprogress' : 'cards-done';
+                               status === 'en cours' ? 'cards-inprogress' :
+                               status === 'bloqué' ? 'cards-blocked' : 'cards-done';
             const container = document.getElementById(containerId);
             
             if (!container) return;
@@ -606,11 +713,15 @@ class App {
             container.innerHTML = columns[status].map(t => {
                 const project = store.state.projects.find(p => p.id === t.project);
                 const assignee = store.state.members.find(m => m.id === t.assignee);
+                const isBlocked = t.status === 'bloqué';
 
                 return `
-                    <div class="kanban-card" draggable="true" data-id="${t.id}">
+                    <div class="kanban-card ${isBlocked ? 'blocked-task' : ''}" draggable="true" data-id="${t.id}" onclick="app.openTaskViewModal(${t.id})" style="cursor: pointer;">
                         <div class="kanban-card-header">
-                            <h4>${t.name}</h4>
+                            <h4>
+                                ${isBlocked ? '<span class="blocked-icon" title="' + (t.blockedReason || 'Bloqué') + '">🚫</span> ' : ''}
+                                ${t.name}
+                            </h4>
                             <div class="kanban-card-actions">
                                 <button class="action-btn" onclick="app.openEditTask(${t.id}); event.stopPropagation()" title="Modifier">
                                     <i class="fas fa-edit"></i>
@@ -620,6 +731,7 @@ class App {
                                 </button>
                             </div>
                         </div>
+                        ${isBlocked && t.blockedReason ? `<div class="blocked-reason"><strong>🚫 Blocage:</strong> ${t.blockedReason}</div>` : ''}
                         ${t.description ? `<p class="kanban-card-desc">${truncate(t.description, 80)}</p>` : ''}
                         <div class="kanban-card-meta">
                             ${getPriorityTag(t.priority)}
@@ -737,6 +849,7 @@ class App {
         const year = this.calendarDate.getFullYear();
         const month = this.calendarDate.getMonth();
         const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
         const monthNames = ["Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
                           "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"];
@@ -762,34 +875,41 @@ class App {
         store.state.tasks.forEach(t => {
             if (!t.dueDate) return;
             const d = new Date(t.dueDate);
+            d.setHours(0, 0, 0, 0);
             if (d.getFullYear() === year && d.getMonth() === month) {
+                const project = store.state.projects.find(p => p.id === t.project);
                 monthEvents.push({
                     day: d.getDate(),
                     label: t.name,
                     type: "task",
                     priority: t.priority,
-                    id: t.id
+                    status: t.status,
+                    id: t.id,
+                    color: project ? project.color : '#6366f1'
                 });
             }
         });
 
         store.state.projects.forEach(p => {
-            if (!p.endDate) return;
-            const d = new Date(p.endDate);
-            if (d.getFullYear() === year && d.getMonth() === month) {
-                monthEvents.push({
-                    day: d.getDate(),
-                    label: `📁 ${p.name}`,
-                    type: "project",
-                    priority: p.priority,
-                    id: p.id,
-                    color: p.color
-                });
+            if (p.endDate) {
+                const d = new Date(p.endDate);
+                d.setHours(0, 0, 0, 0);
+                if (d.getFullYear() === year && d.getMonth() === month) {
+                    monthEvents.push({
+                        day: d.getDate(),
+                        label: `📁 ${p.name}`,
+                        type: "project",
+                        priority: p.priority,
+                        id: p.id,
+                        color: p.color
+                    });
+                }
             }
             
             // Ajouter aussi la date de MEP si elle existe
             if (p.releaseDate) {
                 const mepDate = new Date(p.releaseDate);
+                mepDate.setHours(0, 0, 0, 0);
                 if (mepDate.getFullYear() === year && mepDate.getMonth() === month) {
                     monthEvents.push({
                         day: mepDate.getDate(),
@@ -815,24 +935,44 @@ class App {
         // Current month days
         for (let d = 1; d <= totalDays; d++) {
             const dayEl = document.createElement("div");
-            const isToday = d === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+            const currentDate = new Date(year, month, d);
+            currentDate.setHours(0, 0, 0, 0);
+            const isToday = currentDate.getTime() === today.getTime();
+            
             dayEl.className = `calendar-day${isToday ? " today" : ""}`;
             dayEl.innerHTML = `<div class="day-number">${d}</div>`;
+            dayEl.title = "Cliquer pour créer une tâche le " + d + " " + monthNames[month] + " " + year;
+            
+            // Permettre de créer une tâche en cliquant sur le jour
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            dayEl.onclick = () => {
+                app.openTaskModal(dateStr);
+            };
 
             const dayEvents = monthEvents.filter(e => e.day === d);
-            dayEvents.slice(0, 2).forEach(e => {
+            dayEvents.slice(0, 3).forEach(e => {
                 const evEl = document.createElement("div");
                 evEl.className = `day-event prio-${e.priority}`;
-                if (e.type === "project") evEl.style.background = e.color;
-                evEl.textContent = e.label;
+                evEl.style.background = e.color;
+                evEl.style.color = '#fff';
+                evEl.textContent = e.label.length > 20 ? e.label.substring(0, 18) + '...' : e.label;
                 evEl.title = e.label;
+                evEl.onclick = (event) => {
+                    event.stopPropagation();
+                    if (e.type === 'task') {
+                        app.openEditTask(e.id);
+                    } else if (e.type === 'project' || e.type === 'release') {
+                        app.openEditProject(e.id);
+                    }
+                };
                 dayEl.appendChild(evEl);
             });
 
-            if (dayEvents.length > 2) {
+            if (dayEvents.length > 3) {
                 const more = document.createElement("div");
-                more.style.cssText = "font-size:.65rem;color:var(--text-light);padding:1px 4px";
-                more.textContent = `+${dayEvents.length - 2} autre(s)`;
+                more.style.cssText = "font-size:.65rem;color:var(--text-light);padding:1px 4px;cursor:pointer";
+                more.textContent = `+${dayEvents.length - 3} autre(s)`;
+                more.title = dayEvents.slice(3).map(e => e.label).join('\\n');
                 dayEl.appendChild(more);
             }
 
@@ -863,10 +1003,21 @@ class App {
         }
 
         const sorted = [...events].sort((a, b) => a.day - b.day);
-        container.innerHTML = sorted.map(e => `
-            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+        container.innerHTML = sorted.map(e => {
+            const eventIcon = e.type === "task" ? "fa-check-circle" : 
+                             e.type === "release" ? "fa-rocket" : "fa-folder";
+            const eventType = e.type === "project" ? "Fin de projet" : 
+                             e.type === "release" ? "Mise en production" : 
+                             "Échéance tâche";
+            const statusBadge = e.status === 'bloqué' ? '<span style="color:#ef4444;font-size:0.75rem;margin-left:8px">🚫 Bloqué</span>' : '';
+            
+            return `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer;transition:background 0.2s"
+                 onclick="app.${e.type === 'task' ? 'openEditTask' : 'openEditProject'}(${e.id})"
+                 onmouseover="this.style.background='var(--bg)'" 
+                 onmouseout="this.style.background='transparent'">
                 <div style="
-                    background:${e.type === "project" ? e.color : (e.type === "release" ? "#ef4444" : "var(--primary)")};
+                    background:${e.color};
                     color:#fff;
                     border-radius:var(--radius-sm);
                     padding:6px 10px;
@@ -877,14 +1028,19 @@ class App {
                     ${e.day}
                 </div>
                 <div style="flex:1">
-                    <p style="font-size:.875rem;font-weight:600">${e.label}</p>
-                    <p style="font-size:.75rem;color:var(--text-light)">
-                        ${e.type === "project" ? "Fin de projet" : (e.type === "release" ? "Mise en production" : "Échéance tâche")} · ${monthName} ${year}
+                    <p style="font-size:.875rem;font-weight:600;margin:0;display:flex;align-items:center;gap:8px">
+                        <i class="fas ${eventIcon}" style="font-size:0.75rem;color:${e.color}"></i>
+                        ${e.label}
+                        ${statusBadge}
+                    </p>
+                    <p style="font-size:.75rem;color:var(--text-light);margin:4px 0 0 0">
+                        ${eventType} · ${monthName} ${year}
                     </p>
                 </div>
                 ${getPriorityTag(e.priority)}
             </div>
-        `).join("");
+        `;
+        }).join("");
     }
 
     initCalendar() {
@@ -904,7 +1060,16 @@ class App {
                 this.renderCalendar();
             });
         }
-        notificationService.info('Calendrier - Fonctionnalité en développement');
+
+        // Ajouter bouton retour aujourd'hui
+        const todayBtn = document.getElementById("todayBtn");
+        if (todayBtn) {
+            todayBtn.addEventListener("click", () => {
+                this.calendarDate = new Date();
+                this.renderCalendar();
+                notificationService.success('Retour au mois actuel');
+            });
+        }
     }
 
     renderAnalytics() {
@@ -942,6 +1107,10 @@ class App {
         });
         
         this.updateMemberCheckboxes();
+        
+        // Vider les liens
+        document.getElementById('projectLinksContainer').innerHTML = '';
+        
         this.openModal("modalProject");
     }
 
@@ -958,6 +1127,8 @@ class App {
         document.getElementById("projectStart").value = p.startDate || '';
         document.getElementById("projectEnd").value = p.endDate || '';
         document.getElementById("projectRelease").value = p.releaseDate || '';
+        document.getElementById("projectBudget").value = p.budget || '';
+        document.getElementById("projectActualSpent").value = p.actualSpent || 0;
 
         this.selectedColor = p.color;
         document.querySelectorAll(".color-option").forEach(o => {
@@ -965,13 +1136,34 @@ class App {
         });
 
         this.updateMemberCheckboxes(p.members);
+        
+        // Charger les liens
+        const linksContainer = document.getElementById('projectLinksContainer');
+        linksContainer.innerHTML = '';
+        if (p.links && p.links.length > 0) {
+            p.links.forEach(link => {
+                addProjectLink(link.path, link.label, link.url);
+            });
+        }
+        
         this.openModal("modalProject");
     }
 
-    openTaskModal() {
+    openTaskModal(prefilledDate = null) {
         document.getElementById("modalTaskTitle").textContent = "Nouvelle tâche";
         document.getElementById("formTask").reset();
         document.getElementById("taskId").value = "";
+        
+        // Pré-remplir la date si fournie (depuis le calendrier par exemple)
+        if (prefilledDate) {
+            document.getElementById("taskDue").value = prefilledDate;
+            // Convertir la date pour l'affichage
+            const [year, month, day] = prefilledDate.split('-');
+            const monthNames = ["janvier", "février", "mars", "avril", "mai", "juin",
+                              "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
+            const displayDate = `${parseInt(day)} ${monthNames[parseInt(month) - 1]} ${year}`;
+            notificationService.info(`Échéance définie au ${displayDate}`);
+        }
         
         this.updateTaskProjectSelect();
         this.updateTaskAssigneeSelect();
@@ -986,10 +1178,39 @@ class App {
         document.getElementById("taskId").value = t.id;
         document.getElementById("taskName").value = t.name;
         document.getElementById("taskDesc").value = t.description;
+        document.getElementById("taskType").value = t.type || 'feature';
         document.getElementById("taskStatus").value = t.status;
         document.getElementById("taskPriority").value = t.priority;
+        document.getElementById("taskStartDate").value = t.startDate || '';
         document.getElementById("taskDue").value = t.dueDate || '';
         document.getElementById("taskProgress").value = t.progress;
+        document.getElementById("progressValue").textContent = t.progress + '%';
+        document.getElementById("blockedReason").value = t.blockedReason || '';
+        
+        // Champs backlog - Hiérarchie
+        document.getElementById("taskEpic").value = t.epic || '';
+        document.getElementById("taskUserStory").value = t.userStory || '';
+        
+        // Champs backlog - Organisation
+        document.getElementById("taskDomain").value = t.domain || '';
+        document.getElementById("taskSubdomain").value = t.subdomain || '';
+        
+        // Champs backlog - Analyse
+        document.getElementById("taskHypothesis").value = t.hypothesis || '';
+        document.getElementById("taskSolution").value = t.solution || '';
+        document.getElementById("taskAcceptanceCriteria").value = t.acceptanceCriteria || '';
+        document.getElementById("taskRisks").value = t.risks || '';
+        
+        // Champs backlog - Estimation
+        document.getElementById("taskEstimationDays").value = t.estimationDays || '';
+        document.getElementById("taskEstimationHours").value = t.estimationHours || '';
+        document.getElementById("taskStoryPoints").value = t.storyPoints || '';
+        
+        // Champs backlog - Dépendances
+        document.getElementById("taskDependencies").value = (t.dependencies || []).join(', ');
+
+        // Afficher le champ de raison si bloqué
+        toggleBlockedReason();
 
         this.updateTaskProjectSelect(t.project);
         this.updateTaskAssigneeSelect(t.assignee);
@@ -1108,6 +1329,485 @@ class App {
             }
         );
     }
+
+    /**
+     * Afficher/masquer le dropdown des notifications
+     */
+    toggleNotifications() {
+        const dropdown = document.getElementById('notificationsDropdown');
+        if (!dropdown) return;
+        
+        const isVisible = dropdown.style.display === 'block';
+        dropdown.style.display = isVisible ? 'none' : 'block';
+        
+        if (!isVisible) {
+            this.renderNotifications();
+        }
+    }
+
+    /**
+     * Afficher les notifications dans le dropdown
+     */
+    renderNotifications() {
+        const content = document.getElementById('notificationsContent');
+        const badge = document.getElementById('notificationsBadge');
+        if (!content) return;
+        
+        const activities = store.state.activities || [];
+        const recentActivities = activities.slice(-10).reverse(); // 10 dernières activités
+        
+        // Mise à jour du badge
+        if (badge) {
+            if (activities.length > 0) {
+                badge.textContent = activities.length > 99 ? '99+' : activities.length;
+                badge.style.display = 'flex';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        
+        // Si aucune notification
+        if (recentActivities.length === 0) {
+            content.innerHTML = `
+                <div class="notifications-empty">
+                    <i class="fas fa-bell-slash"></i>
+                    <p>Aucune nouvelle notification</p>
+                </div>
+            `;
+            return;
+        }
+        
+        // Afficher les notifications
+        const html = recentActivities.map(activity => {
+            // Support des deux formats d'activités (ancien et nouveau)
+            const message = activity.text || activity.action || 'Notification';
+            const iconClass = activity.icon ? `fas ${activity.icon}` : this.getNotificationIcon(activity.type);
+            const iconColor = activity.iconBg || this.getNotificationIconColor(activity.type);
+            const timeAgo = activity.time || this.getTimeAgo(activity.timestamp || activity.date);
+            
+            return `
+                <div class="notification-item">
+                    <div class="notification-icon ${iconColor}">
+                        <i class="${iconClass}"></i>
+                    </div>
+                    <div class="notification-text">
+                        <div class="notification-message">${message}</div>
+                        <div class="notification-time">${timeAgo}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        content.innerHTML = html;
+    }
+
+    /**
+     * Effacer toutes les notifications
+     */
+    clearNotifications() {
+        notificationService.confirm(
+            'Voulez-vous effacer toutes les notifications ?',
+            () => {
+                store.state.activities = [];
+                store.set('activities', []);
+                this.renderNotifications();
+                notificationService.success('Notifications effacées');
+            }
+        );
+    }
+
+    /**
+     * Obtenir l'icône selon le type d'activité
+     */
+    getNotificationIcon(type) {
+        const icons = {
+            'project': 'fas fa-folder',
+            'task': 'fas fa-check-circle',
+            'member': 'fas fa-user',
+            'comment': 'fas fa-comment',
+            'alert': 'fas fa-exclamation-triangle',
+            'success': 'fas fa-check-circle',
+            'info': 'fas fa-info-circle'
+        };
+        return icons[type] || 'fas fa-bell';
+    }
+
+    /**
+     * Obtenir la couleur de l'icône selon le type
+     */
+    getNotificationIconColor(type) {
+        const colors = {
+            'project': 'blue',
+            'task': 'green',
+            'member': 'blue',
+            'comment': 'orange',
+            'alert': 'red',
+            'success': 'green',
+            'info': 'blue'
+        };
+        return colors[type] || 'blue';
+    }
+
+    /**
+     * Calculer le temps écoulé depuis une date
+     */
+    getTimeAgo(dateString) {
+        if (!dateString) return 'À l\'instant';
+        
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = now - date;
+        
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        
+        if (minutes < 1) return 'À l\'instant';
+        if (minutes < 60) return `Il y a ${minutes} min`;
+        if (hours < 24) return `Il y a ${hours}h`;
+        if (days < 7) return `Il y a ${days}j`;
+        return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+    }
+
+    /**
+     * Ouvrir la modal des liens d'un projet
+     */
+    openProjectLinksModal(projectId) {
+        const project = store.state.projects.find(p => p.id === projectId);
+        if (!project || !project.links || project.links.length === 0) {
+            notificationService.info('Aucun lien SharePoint pour ce projet');
+            return;
+        }
+
+        document.getElementById('projectLinksModalTitle').textContent = `Liens SharePoint - ${project.name}`;
+        
+        const container = document.getElementById('projectLinksListContainer');
+        container.innerHTML = project.links.map((link, index) => `
+            <div class="project-link-display-item">
+                <div class="link-icon">
+                    <i class="fas fa-folder"></i>
+                </div>
+                <div class="link-content">
+                    <div class="link-path">
+                        <i class="fas fa-angle-right" style="margin: 0 4px; color: var(--text-light); font-size: 0.7rem;"></i>
+                        ${link.path.split('/').join(' <i class="fas fa-angle-right" style="margin: 0 4px; color: var(--text-light); font-size: 0.7rem;"></i> ')}
+                    </div>
+                    <div class="link-label">${link.label}</div>
+                    <div class="link-url">${link.url}</div>
+                </div>
+                <div class="link-actions">
+                    <a href="${link.url}" target="_blank" class="btn btn-sm btn-primary" title="Ouvrir le lien">
+                        <i class="fas fa-external-link-alt"></i>
+                        Ouvrir
+                    </a>
+                    <button class="btn btn-sm btn-outline" onclick="copyToClipboard('${link.url.replace(/'/g, "\\'")}')", title="Copier le lien">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+        
+        this.openModal('modalProjectLinks');
+    }
+
+    /**
+     * Ouvrir la modal de visualisation d'une tâche
+     */
+    openTaskViewModal(taskId) {
+        const task = store.state.tasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        const project = store.state.projects.find(p => p.id === task.project);
+        const assignee = store.state.members.find(m => m.id === task.assignee);
+
+        document.getElementById('taskViewTitle').textContent = task.name;
+        
+        // Sauvegarder l'ID pour le bouton Modifier
+        document.getElementById('btnEditTaskFromView').setAttribute('data-task-id', taskId);
+        
+        const content = document.getElementById('taskViewContent');
+        content.innerHTML = `
+            <div class="task-view-container">
+                <!-- Informations principales -->
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-info-circle"></i> Informations principales</h3>
+                    <div class="task-view-grid">
+                        <div class="task-view-field">
+                            <label>Nom</label>
+                            <div class="task-view-value">${task.name}</div>
+                        </div>
+                        ${task.description ? `
+                        <div class="task-view-field full-width">
+                            <label>Description</label>
+                            <div class="task-view-value">${task.description}</div>
+                        </div>
+                        ` : ''}
+                        <div class="task-view-field">
+                            <label>Type</label>
+                            <div class="task-view-value">${getTypeLabel(task.type || 'feature')}</div>
+                        </div>
+                        <div class="task-view-field">
+                            <label>Statut</label>
+                            <div>${getStatusTag(task.status)}</div>
+                        </div>
+                        <div class="task-view-field">
+                            <label>Priorité</label>
+                            <div>${getPriorityTag(task.priority)}</div>
+                        </div>
+                        <div class="task-view-field">
+                            <label>Progression</label>
+                            <div class="task-view-value">
+                                <div class="progress-bar" style="margin-top: 4px;">
+                                    <div class="progress-fill" style="width: ${task.progress}%; background: var(--primary);"></div>
+                                </div>
+                                <span style="font-size: 0.85rem; color: var(--text-light); margin-top: 4px;">${task.progress}%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Structure backlog -->
+                ${task.epic || task.userStory ? `
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-layer-group"></i> Structure Backlog</h3>
+                    <div class="task-view-grid">
+                        ${task.epic ? `
+                        <div class="task-view-field">
+                            <label>Epic</label>
+                            <div class="task-view-value"><span class="badge badge-purple">📦 ${task.epic}</span></div>
+                        </div>
+                        ` : ''}
+                        ${task.userStory ? `
+                        <div class="task-view-field">
+                            <label>User Story</label>
+                            <div class="task-view-value"><span class="badge badge-blue">📋 ${task.userStory}</span></div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Domaine et contexte -->
+                ${task.domain || task.subdomain ? `
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-sitemap"></i> Domaine et contexte</h3>
+                    <div class="task-view-grid">
+                        ${task.domain ? `
+                        <div class="task-view-field">
+                            <label>Domaine</label>
+                            <div class="task-view-value">${task.domain}</div>
+                        </div>
+                        ` : ''}
+                        ${task.subdomain ? `
+                        <div class="task-view-field">
+                            <label>Sous-domaine</label>
+                            <div class="task-view-value">${task.subdomain}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Hypothèse et solution -->
+                ${task.hypothesis || task.solution ? `
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-lightbulb"></i> Hypothèse et solution</h3>
+                    <div class="task-view-grid">
+                        ${task.hypothesis ? `
+                        <div class="task-view-field full-width">
+                            <label>Hypothèse</label>
+                            <div class="task-view-value">${task.hypothesis}</div>
+                        </div>
+                        ` : ''}
+                        ${task.solution ? `
+                        <div class="task-view-field full-width">
+                            <label>Solution proposée</label>
+                            <div class="task-view-value">${task.solution}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Critères d'acceptation -->
+                ${task.acceptanceCriteria ? `
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-check-square"></i> Critères d'acceptation</h3>
+                    <div class="task-view-field full-width">
+                        <div class="task-view-value" style="white-space: pre-wrap;">${task.acceptanceCriteria}</div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Risques -->
+                ${task.risks ? `
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-exclamation-triangle"></i> Risques identifiés</h3>
+                    <div class="task-view-field full-width">
+                        <div class="task-view-value risk-box" style="white-space: pre-wrap;">${task.risks}</div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Dépendances -->
+                ${task.dependencies ? `
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-link"></i> Dépendances</h3>
+                    <div class="task-view-field full-width">
+                        <div class="task-view-value">${task.dependencies}</div>
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Estimation -->
+                ${task.estimationDays || task.estimationHours || task.storyPoints ? `
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-clock"></i> Estimation</h3>
+                    <div class="task-view-grid">
+                        ${task.estimationDays ? `
+                        <div class="task-view-field">
+                            <label>Jours</label>
+                            <div class="task-view-value"><span class="badge badge-blue">${task.estimationDays} j</span></div>
+                        </div>
+                        ` : ''}
+                        ${task.estimationHours ? `
+                        <div class="task-view-field">
+                            <label>Heures</label>
+                            <div class="task-view-value"><span class="badge badge-blue">${task.estimationHours} h</span></div>
+                        </div>
+                        ` : ''}
+                        ${task.storyPoints ? `
+                        <div class="task-view-field">
+                            <label>Story Points</label>
+                            <div class="task-view-value"><span class="badge badge-purple">${task.storyPoints} SP</span></div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+                ` : ''}
+
+                <!-- Dates et affectation -->
+                <div class="task-view-section">
+                    <h3 class="task-view-section-title"><i class="fas fa-calendar-alt"></i> Planning et affectation</h3>
+                    <div class="task-view-grid">
+                        ${project ? `
+                        <div class="task-view-field">
+                            <label>Projet</label>
+                            <div class="task-view-value"><span class="tag tag-gray">${project.name}</span></div>
+                        </div>
+                        ` : ''}
+                        ${assignee ? `
+                        <div class="task-view-field">
+                            <label>Assigné à</label>
+                            <div class="task-view-value">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div class="member-chip" style="background: ${memberColor(assignee.id)}">
+                                        ${assignee.firstName[0]}${assignee.lastName[0]}
+                                    </div>
+                                    <span>${assignee.firstName} ${assignee.lastName}</span>
+                                </div>
+                            </div>
+                        </div>
+                        ` : ''}
+                        ${task.startDate ? `
+                        <div class="task-view-field">
+                            <label>Date début</label>
+                            <div class="task-view-value"><i class="fas fa-calendar"></i> ${formatDate(task.startDate)}</div>
+                        </div>
+                        ` : ''}
+                        ${task.dueDate ? `
+                        <div class="task-view-field">
+                            <label>Échéance</label>
+                            <div class="task-view-value ${task.isOverdue() ? 'overdue' : ''}"><i class="fas fa-calendar-check"></i> ${formatDate(task.dueDate)}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <!-- Blocage -->
+                ${task.status === 'bloqué' && task.blockedReason ? `
+                <div class="task-view-section" style="border-left: 4px solid #ef4444;">
+                    <h3 class="task-view-section-title" style="color: #ef4444;"><i class="fas fa-ban"></i> Blocage</h3>
+                    <div class="task-view-field full-width">
+                        <div class="task-view-value" style="background: rgba(239, 68, 68, 0.1); padding: 12px; border-radius: 6px; color: #dc2626;">
+                            🚫 ${task.blockedReason}
+                        </div>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <!-- Actions rapides statut -->
+                <div class="task-view-section" style="background: linear-gradient(135deg, #f3f4f6, #e5e7eb); border: none;">
+                    <h3 class="task-view-section-title"><i class="fas fa-bolt"></i> Actions rapides</h3>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        ${task.status !== 'à faire' ? `
+                        <button class="quick-status-btn" onclick="quickChangeStatus(${task.id}, 'à faire')" style="background: #6b7280;">
+                            <i class="fas fa-circle"></i> À faire
+                        </button>
+                        ` : ''}
+                        ${task.status !== 'en cours' ? `
+                        <button class="quick-status-btn" onclick="quickChangeStatus(${task.id}, 'en cours')" style="background: #3b82f6;">
+                            <i class="fas fa-spinner"></i> En cours
+                        </button>
+                        ` : ''}
+                        ${task.status !== 'bloqué' ? `
+                        <button class="quick-status-btn" onclick="quickChangeStatus(${task.id}, 'bloqué')" style="background: #ef4444;">
+                            <i class="fas fa-ban"></i> Bloquer
+                        </button>
+                        ` : ''}
+                        ${task.status !== 'terminé' ? `
+                        <button class="quick-status-btn" onclick="quickChangeStatus(${task.id}, 'terminé')" style="background: #10b981;">
+                            <i class="fas fa-check"></i> Terminer
+                        </button>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        this.openModal('modalTaskView');
+    }
+
+    /**
+     * Changer rapidement le statut d'une tâche
+     */
+    quickChangeTaskStatus(taskId, newStatus) {
+        const task = store.state.tasks.find(t => t.id === taskId);
+        if (!task) return;
+        
+        // Si on bloque, demander la raison
+        if (newStatus === 'bloqué' && !task.blockedReason) {
+            const reason = prompt('Raison du blocage:');
+            if (!reason) {
+                notificationService.warning('Blocage annulé');
+                return;
+            }
+            task.blockedReason = reason;
+        }
+        
+        // Si on débloque, effacer la raison
+        if (task.status === 'bloqué' && newStatus !== 'bloqué') {
+            task.blockedReason = null;
+        }
+        
+        // Mettre à jour le statut
+        const oldStatus = task.status;
+        task.status = newStatus;
+        
+        // Si terminé, mettre la progression à 100%
+        if (newStatus === 'terminé') {
+            task.progress = 100;
+        }
+        
+        store.set('tasks', store.state.tasks);
+        notificationService.success(`Statut changé: ${oldStatus} → ${newStatus}`);
+        
+        // Recharger la modal de visualisation
+        this.openTaskViewModal(taskId);
+        
+        // Rafraîchir le Kanban
+        this.renderTasks();
+    }
 }
 
 // Démarrer l'application au chargement du DOM
@@ -1133,6 +1833,15 @@ function initModalEvents() {
 // Rendre les fonctions principales accessibles globalement pour les onclick dans le HTML
 window.navigateTo = (page) => window.app.navigateTo(page);
 window.closeModal = (modalId) => window.app.closeModal(modalId);
+window.openProjectLinks = (projectId) => window.app.openProjectLinksModal(projectId);
+window.editTaskFromView = () => {
+    const taskId = parseInt(document.getElementById('btnEditTaskFromView').getAttribute('data-task-id'));
+    window.app.closeModal('modalTaskView');
+    setTimeout(() => window.app.openEditTask(taskId), 100);
+};
+window.quickChangeStatus = (taskId, newStatus) => {
+    window.app.quickChangeTaskStatus(taskId, newStatus);
+};
 
 // Fonctions de sauvegarde
 window.saveProject = () => {
@@ -1144,6 +1853,8 @@ window.saveProject = () => {
     const startDate = document.getElementById('projectStart').value;
     const endDate = document.getElementById('projectEnd').value;
     const releaseDate = document.getElementById('projectRelease').value;
+    const budget = parseFloat(document.getElementById('projectBudget').value) || null;
+    const actualSpent = parseFloat(document.getElementById('projectActualSpent').value) || 0;
 
     if (!name.trim()) {
         notificationService.error('Le nom du projet est requis');
@@ -1154,6 +1865,17 @@ window.saveProject = () => {
     const memberCheckboxes = document.querySelectorAll('#memberCheckboxes input:checked');
     const members = Array.from(memberCheckboxes).map(cb => parseInt(cb.value));
 
+    // Récupérer les liens SharePoint
+    const links = [];
+    document.querySelectorAll('.project-link-item').forEach(item => {
+        const path = item.querySelector('.link-path').value.trim();
+        const label = item.querySelector('.link-label').value.trim();
+        const url = item.querySelector('.link-url').value.trim();
+        if (path && label && url) {
+            links.push({ path, label, url });
+        }
+    });
+
     const data = {
         name,
         description,
@@ -1162,7 +1884,10 @@ window.saveProject = () => {
         startDate,
         endDate,
         releaseDate,
+        budget,
+        actualSpent,
         members,
+        links,
         color: app.selectedColor
     };
 
@@ -1190,12 +1915,38 @@ window.saveTask = () => {
     const id = document.getElementById('taskId').value;
     const name = document.getElementById('taskName').value;
     const description = document.getElementById('taskDesc').value;
+    const type = document.getElementById('taskType').value;
     const project = parseInt(document.getElementById('taskProject').value);
     const assignee = parseInt(document.getElementById('taskAssignee').value) || null;
     const status = document.getElementById('taskStatus').value;
     const priority = document.getElementById('taskPriority').value;
+    const startDate = document.getElementById('taskStartDate').value;
     const dueDate = document.getElementById('taskDue').value;
     const progress = parseInt(document.getElementById('taskProgress').value);
+    const blockedReason = document.getElementById('blockedReason').value;
+    
+    // Champs backlog - Hiérarchie
+    const epic = document.getElementById('taskEpic').value;
+    const userStory = document.getElementById('taskUserStory').value;
+    
+    // Champs backlog - Organisation
+    const domain = document.getElementById('taskDomain').value;
+    const subdomain = document.getElementById('taskSubdomain').value;
+    
+    // Champs backlog - Analyse
+    const hypothesis = document.getElementById('taskHypothesis').value;
+    const solution = document.getElementById('taskSolution').value;
+    const acceptanceCriteria = document.getElementById('taskAcceptanceCriteria').value;
+    const risks = document.getElementById('taskRisks').value;
+    
+    // Champs backlog - Estimation
+    const estimationDays = parseFloat(document.getElementById('taskEstimationDays').value) || null;
+    const estimationHours = parseFloat(document.getElementById('taskEstimationHours').value) || null;
+    const storyPoints = parseInt(document.getElementById('taskStoryPoints').value) || null;
+    
+    // Champs backlog - Dépendances
+    const dependenciesStr = document.getElementById('taskDependencies').value;
+    const dependencies = dependenciesStr ? dependenciesStr.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d)) : [];
 
     if (!name.trim()) {
         notificationService.error('Le nom de la tâche est requis');
@@ -1207,15 +1958,35 @@ window.saveTask = () => {
         return;
     }
 
+    if (status === 'bloqué' && !blockedReason.trim()) {
+        notificationService.error('Veuillez indiquer la raison du blocage');
+        return;
+    }
+
     const data = {
         name,
         description,
+        type,
         project,
         assignee,
         status,
         priority,
+        startDate,
         dueDate,
-        progress
+        progress,
+        blockedReason: status === 'bloqué' ? blockedReason : null,
+        epic,
+        userStory,
+        domain,
+        subdomain,
+        hypothesis,
+        solution,
+        acceptanceCriteria,
+        risks,
+        estimationDays,
+        estimationHours,
+        storyPoints,
+        dependencies
     };
 
     if (id) {
@@ -1284,6 +2055,63 @@ window.saveMember = () => {
     app.renderDashboard();
 };
 
+// Afficher/masquer le champ de raison de blocage
+window.toggleBlockedReason = () => {
+    const status = document.getElementById('taskStatus').value;
+    const blockedGroup = document.getElementById('blockedReasonGroup');
+    if (status === 'bloqué') {
+        blockedGroup.style.display = 'block';
+    } else {
+        blockedGroup.style.display = 'none';
+        document.getElementById('blockedReason').value = '';
+    }
+};
+
+// Gestion des liens SharePoint pour les projets
+window.addProjectLink = (path = '', label = '', url = '') => {
+    const container = document.getElementById('projectLinksContainer');
+    const linkId = Date.now();
+    
+    const linkItem = document.createElement('div');
+    linkItem.className = 'project-link-item';
+    linkItem.style.cssText = 'display: grid; grid-template-columns: 2fr 2fr 3fr auto; gap: 8px; align-items: start; padding: 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px;';
+    
+    linkItem.innerHTML = `
+        <div>
+            <label style="font-size: 0.75rem; color: var(--text-light); display: block; margin-bottom: 4px;">Chemin</label>
+            <input type="text" class="link-path" value="${path}" placeholder="Projet/Layout/Traduction" 
+                   style="width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem;">
+            <small style="font-size: 0.7rem; color: var(--text-light); margin-top: 2px; display: block;">Ex: Projet/Docs</small>
+        </div>
+        <div>
+            <label style="font-size: 0.75rem; color: var(--text-light); display: block; margin-bottom: 4px;">Nom du lien</label>
+            <input type="text" class="link-label" value="${label}" placeholder="Traductions FR" 
+                   style="width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem;">
+        </div>
+        <div>
+            <label style="font-size: 0.75rem; color: var(--text-light); display: block; margin-bottom: 4px;">URL SharePoint</label>
+            <input type="url" class="link-url" value="${url}" placeholder="https://sharepoint.com/..." 
+                   style="width: 100%; padding: 6px 10px; border: 1px solid var(--border); border-radius: 4px; font-size: 0.85rem;">
+        </div>
+        <div style="display: flex; align-items: flex-end; height: 100%;">
+            <button type="button" class="btn btn-icon" onclick="removeProjectLink(${linkId})" 
+                    style="background: var(--danger); color: white; padding: 6px 10px; margin-top: 18px;" title="Supprimer">
+                <i class="fas fa-trash"></i>
+            </button>
+        </div>
+    `;
+    
+    linkItem.dataset.linkId = linkId;
+    container.appendChild(linkItem);
+};
+
+window.removeProjectLink = (linkId) => {
+    const linkItem = document.querySelector(`[data-link-id="${linkId}"]`);
+    if (linkItem) {
+        linkItem.remove();
+    }
+};
+
 window.renderProjects = () => window.app.renderProjects();
 window.renderTasks = () => window.app.renderTasks();
 window.setProjectView = (view) => {
@@ -1294,4 +2122,364 @@ window.setProjectView = (view) => {
         document.getElementById("viewList")?.classList.toggle("active", view === "list");
         window.app.renderProjects();
     }
+};
+
+/**
+ * Exporter le backlog au format CSV (Excel)
+ */
+window.exportBacklogCSV = () => {
+    const tasks = store.state.tasks;
+    if (!tasks || tasks.length === 0) {
+        notificationService.error('Aucune tâche à exporter');
+        return;
+    }
+
+    // Fermer le menu
+    document.getElementById('exportBacklogMenu').style.display = 'none';
+
+    // Headers CSV - Structure complète
+    const headers = [
+        'ID',
+        'Titre',
+        'Type',
+        'Epic',
+        'User Story',
+        'Description',
+        'Domaine',
+        'Sous-domaine',
+        'Statut',
+        'Priorité',
+        'Projet',
+        'Assigné à',
+        'Hypothèse',
+        'Solution',
+        'Critères d\'acceptation',
+        'Risques',
+        'Dépendances',
+        'Estimation (j)',
+        'Estimation (h)',
+        'Story Points',
+        'Date début',
+        'Date échéance',
+        'Progression (%)',
+        'Bloqué',
+        'Raison blocage',
+        'Créé le'
+    ];
+
+    // Convertir les tâches en lignes CSV
+    const rows = tasks.map(t => {
+        const project = store.state.projects.find(p => p.id === t.project);
+        const member = store.state.members.find(m => m.id === t.assignee);
+        
+        const typeIcons = {
+            'feature': 'Feature',
+            'bug': 'Bug',
+            'tech': 'Tech',
+            'amélioration': 'Amélioration',
+            'doc': 'Documentation'
+        };
+        
+        return [
+            t.id,
+            `"${(t.name || '').replace(/"/g, '""')}"`,
+            typeIcons[t.type] || t.type || 'Feature',
+            `"${(t.epic || '').replace(/"/g, '""')}"`,
+            `"${(t.userStory || '').replace(/"/g, '""')}"`,
+            `"${(t.description || '').replace(/"/g, '""')}"`,
+            t.domain || '',
+            `"${(t.subdomain || '').replace(/"/g, '""')}"`,
+            t.status || '',
+            t.priority || '',
+            project ? `"${project.name.replace(/"/g, '""')}"` : '',
+            member ? `"${member.firstName} ${member.lastName}"` : '',
+            `"${(t.hypothesis || '').replace(/"/g, '""')}"`,
+            `"${(t.solution || '').replace(/"/g, '""')}"`,
+            `"${(t.acceptanceCriteria || '').replace(/"/g, '""')}"`,
+            `"${(t.risks || '').replace(/"/g, '""')}"`,
+            (t.dependencies || []).join('; '),
+            t.estimationDays || '',
+            t.estimationHours || '',
+            t.storyPoints || '',
+            t.startDate || '',
+            t.dueDate || '',
+            t.progress || 0,
+            t.status === 'bloqué' ? 'Oui' : 'Non',
+            `"${(t.blockedReason || '').replace(/"/g, '""')}"`,
+            new Date(t.createdAt).toLocaleDateString('fr-FR')
+        ].join(',');
+    });
+
+    // Assembler le CSV
+    const csv = [headers.join(','), ...rows].join('\\n');
+
+    // Télécharger le fichier
+    const filename = `backlog-export-${new Date().toISOString().split('T')[0]}.csv`;
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    link.click();
+
+    notificationService.success(`Backlog exporté: ${tasks.length} tâches avec tous les champs`);
+};
+
+/**
+ * Exporter le backlog au format PDF
+ */
+window.exportBacklogPDF = () => {
+    const tasks = store.state.tasks;
+    if (!tasks || tasks.length === 0) {
+        notificationService.error('Aucune tâche à exporter');
+        return;
+    }
+
+    // Fermer le menu
+    document.getElementById('exportBacklogMenu').style.display = 'none';
+
+    // Créer une fenêtre d'impression avec le contenu formaté
+    const printWindow = window.open('', '_blank');
+    
+    const taskCards = tasks.map(t => {
+        const project = store.state.projects.find(p => p.id === t.project);
+        const member = store.state.members.find(m => m.id === t.assignee);
+        
+        return `
+            <div class="task-card">
+                <div class="task-header">
+                    <div class="task-title">
+                        <span class="task-id">#${t.id}</span>
+                        <h3>${t.name}</h3>
+                    </div>
+                    <div class="task-badges">
+                        <span class="badge badge-status-${t.status}">${t.status}</span>
+                        <span class="badge badge-priority-${t.priority}">${t.priority}</span>
+                    </div>
+                </div>
+                
+                ${t.description ? `
+                <div class="task-section">
+                    <div class="section-label">Description</div>
+                    <div class="section-content">${t.description}</div>
+                </div>
+                ` : ''}
+                
+                <div class="task-meta">
+                    <div class="meta-row">
+                        ${t.epic ? `<div class="meta-item"><strong>Epic:</strong> ${t.epic}</div>` : ''}
+                        ${t.userStory ? `<div class="meta-item"><strong>User Story:</strong> ${t.userStory}</div>` : ''}
+                        ${t.domain ? `<div class="meta-item"><strong>Domaine:</strong> ${t.domain}</div>` : ''}
+                        ${t.subdomain ? `<div class="meta-item"><strong>Sous-domaine:</strong> ${t.subdomain}</div>` : ''}
+                    </div>
+                    <div class="meta-row">
+                        ${project ? `<div class="meta-item"><strong>Projet:</strong> ${project.name}</div>` : ''}
+                        ${member ? `<div class="meta-item"><strong>Assigné:</strong> ${member.firstName} ${member.lastName}</div>` : ''}
+                        ${t.dueDate ? `<div class="meta-item"><strong>Échéance:</strong> ${new Date(t.dueDate).toLocaleDateString('fr-FR')}</div>` : ''}
+                    </div>
+                    <div class="meta-row">
+                        ${t.estimationDays ? `<div class="meta-item"><strong>Estimation:</strong> ${t.estimationDays}j</div>` : ''}
+                        ${t.estimationHours ? `<div class="meta-item"><strong>Heures:</strong> ${t.estimationHours}h</div>` : ''}
+                        ${t.storyPoints ? `<div class="meta-item"><strong>Story Points:</strong> ${t.storyPoints}</div>` : ''}
+                        <div class="meta-item"><strong>Progression:</strong> ${t.progress}%</div>
+                    </div>
+                </div>
+                
+                ${t.hypothesis ? `
+                <div class="task-section">
+                    <div class="section-label">Hypothèse</div>
+                    <div class="section-content">${t.hypothesis}</div>
+                </div>
+                ` : ''}
+                
+                ${t.solution ? `
+                <div class="task-section">
+                    <div class="section-label">Solution proposée</div>
+                    <div class="section-content">${t.solution}</div>
+                </div>
+                ` : ''}
+                
+                ${t.acceptanceCriteria ? `
+                <div class="task-section">
+                    <div class="section-label">Critères d'acceptation</div>
+                    <div class="section-content criteria">${t.acceptanceCriteria.replace(/\n/g, '<br>')}</div>
+                </div>
+                ` : ''}
+                
+                ${t.risks ? `
+                <div class="task-section risk-section">
+                    <div class="section-label">⚠️ Risques identifiés</div>
+                    <div class="section-content">${t.risks.replace(/\n/g, '<br>')}</div>
+                </div>
+                ` : ''}
+                
+                ${t.dependencies ? `
+                <div class="task-section">
+                    <div class="section-label">Dépendances</div>
+                    <div class="section-content">${t.dependencies}</div>
+                </div>
+                ` : ''}
+                
+                ${t.status === 'bloqué' && t.blockedReason ? `
+                <div class="task-section blocked-section">
+                    <div class="section-label">🚫 Blocage</div>
+                    <div class="section-content">${t.blockedReason}</div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+    }).join('');
+
+    const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>Backlog Détaillé - ProjeX</title>
+            <style>
+                @page { margin: 1cm; }
+                body { 
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+                    font-size: 10pt;
+                    margin: 0;
+                    padding: 20px;
+                    background: #f9fafb;
+                }
+                h1 { 
+                    color: #4f46e5; 
+                    border-bottom: 3px solid #4f46e5;
+                    padding-bottom: 10px;
+                    margin-bottom: 10px;
+                }
+                .info { 
+                    color: #6b7280; 
+                    font-size: 9pt; 
+                    margin-bottom: 20px;
+                }
+                .task-card {
+                    background: white;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    padding: 20px;
+                    margin-bottom: 20px;
+                    page-break-inside: avoid;
+                }
+                .task-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                    margin-bottom: 15px;
+                    padding-bottom: 12px;
+                    border-bottom: 2px solid #e5e7eb;
+                }
+                .task-title {
+                    flex: 1;
+                }
+                .task-id {
+                    background: #e0e7ff;
+                    color: #4f46e5;
+                    padding: 4px 10px;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    font-size: 10pt;
+                    margin-right: 10px;
+                }
+                .task-title h3 {
+                    display: inline;
+                    font-size: 13pt;
+                    color: #1f2937;
+                    margin: 0;
+                }
+                .task-badges {
+                    display: flex;
+                    gap: 8px;
+                }
+                .badge {
+                    padding: 4px 12px;
+                    border-radius: 4px;
+                    font-size: 9pt;
+                    font-weight: 600;
+                    white-space: nowrap;
+                }
+                .badge-status-à { background: #e5e7eb; color: #374151; }
+                .badge-status-en { background: #dbeafe; color: #1e40af; }
+                .badge-status-bloqué { background: #fee2e2; color: #991b1b; }
+                .badge-status-terminé { background: #d1fae5; color: #065f46; }
+                .badge-priority-haute { background: #fee2e2; color: #991b1b; }
+                .badge-priority-moyenne { background: #fed7aa; color: #92400e; }
+                .badge-priority-basse { background: #e5e7eb; color: #374151; }
+                .task-section {
+                    margin: 12px 0;
+                }
+                .section-label {
+                    font-weight: 600;
+                    color: #4b5563;
+                    font-size: 9pt;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 6px;
+                }
+                .section-content {
+                    color: #1f2937;
+                    line-height: 1.6;
+                    padding: 8px 12px;
+                    background: #f9fafb;
+                    border-left: 3px solid #d1d5db;
+                    border-radius: 4px;
+                }
+                .risk-section .section-content {
+                    background: #fef2f2;
+                    border-left-color: #ef4444;
+                }
+                .blocked-section .section-content {
+                    background: #fef2f2;
+                    border-left-color: #dc2626;
+                    font-weight: 600;
+                    color: #991b1b;
+                }
+                .criteria {
+                    white-space: pre-wrap;
+                }
+                .task-meta {
+                    margin-top: 12px;
+                }
+                .meta-row {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 15px;
+                    margin-bottom: 8px;
+                }
+                .meta-item {
+                    font-size: 9pt;
+                    color: #6b7280;
+                }
+                .meta-item strong {
+                    color: #374151;
+                    font-weight: 600;
+                }
+                @media print {
+                    .no-print { display: none; }
+                    body { background: white; }
+                }
+            </style>
+        </head>
+        <body>
+            <h1>📋 Backlog Détaillé ProjeX</h1>
+            <div class="info">
+                Export généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}
+                <br>Nombre de tâches: ${tasks.length}
+            </div>
+            <button class="no-print" onclick="window.print()" style="padding: 12px 24px; background: #4f46e5; color: white; border: none; border-radius: 8px; cursor: pointer; margin-bottom: 20px; font-weight: 600; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                🖨️ Imprimer / Sauver en PDF
+            </button>
+            <div class="task-list">
+                ${taskCards}
+            </div>
+        </body>
+        </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+
+    notificationService.success('Aperçu PDF prêt - Utilisez Ctrl+P pour imprimer/sauver');
 };

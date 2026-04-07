@@ -16,6 +16,9 @@ class Project {
         this.progress = data.progress || 0;
         this.tags = data.tags || [];
         this.template = data.template || null;
+        this.budget = data.budget || null; // Budget alloué
+        this.actualSpent = data.actualSpent || 0; // Dépenses réelles
+        this.links = data.links || []; // Liens SharePoint structurés [{ path, label, url }]
         this.createdAt = data.createdAt || Date.now();
         this.updatedAt = data.updatedAt || Date.now();
     }

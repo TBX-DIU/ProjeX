@@ -259,6 +259,21 @@ function getPriorityTag(priority) {
 }
 
 /**
+ * Label de type de tâche
+ */
+function getTypeLabel(type) {
+    const typeMap = {
+        'feature': 'Fonctionnalité',
+        'bug': 'Bug',
+        'improvement': 'Amélioration',
+        'task': 'Tâche',
+        'spike': 'Spike',
+        'documentation': 'Documentation'
+    };
+    return typeMap[type] || type;
+}
+
+/**
  * Calculer le pourcentage
  */
 function percentage(value, total) {
