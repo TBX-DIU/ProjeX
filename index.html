@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProjeX - Gestion de Projet</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="styles-extended.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-rocket"></i>
+                <span>ProjeX</span>
+            </div>
+            <button class="toggle-sidebar" id="toggleSidebar">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <nav class="sidebar-nav">
+            <ul>
+                <li class="nav-item active" data-page="dashboard">
+                    <i class="fas fa-home"></i>
+                    <span>Tableau de bord</span>
+                </li>
+                <li class="nav-item" data-page="projects">
+                    <i class="fas fa-folder"></i>
+                    <span>Projets</span>
+                </li>
+                <li class="nav-item" data-page="tasks">
+                    <i class="fas fa-tasks"></i>
+                    <span>Tâches</span>
+                </li>
+                <li class="nav-item" data-page="team">
+                    <i class="fas fa-users"></i>
+                    <span>Équipe</span>
+                </li>
+                <li class="nav-item" data-page="calendar">
+                    <i class="fas fa-calendar"></i>
+                    <span>Calendrier</span>
+                </li>
+                <li class="nav-item" data-page="analytics">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Analytiques</span>
+                </li>
+                <li class="nav-item" data-page="timeline">
+                    <i class="fas fa-chart-gantt"></i>
+                    <span>Timeline</span>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">AD</div>
+                <div class="user-details">
+                    <span class="user-name">Admin</span>
+                    <span class="user-role">Chef de projet</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content" id="mainContent">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+            <div class="topbar-left">
+                <h1 class="page-title" id="pageTitle">Tableau de bord</h1>
+            </div>
+            <div class="topbar-right">
+                <div class="search-bar">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="Rechercher...">
+                </div>
+                <button class="btn btn-icon" id="themeToggle" title="Changer le thème">
+                    <i class="fas fa-moon"></i>
+                </button>
+                <button class="btn btn-icon" id="btnExport" title="Exporter les données">
+                    <i class="fas fa-download"></i>
+                </button>
+                <button class="btn btn-icon" id="btnImport" title="Importer les données">
+                    <i class="fas fa-upload"></i>
+                </button>
+                <button class="btn btn-primary" id="btnAddMain">
+                    <i class="fas fa-plus"></i> Nouveau
+                </button>
+                <div class="notifications">
+                    <i class="fas fa-bell"></i>
+                    <span class="badge" id="notifBadge">0</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- PAGES -->
+
+        <!-- DASHBOARD PAGE -->
+        <section class="page active" id="page-dashboard">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon blue"><i class="fas fa-folder"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statProjects">0</span>
+                        <span class="stat-label">Projets actifs</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon green"><i class="fas fa-check-circle"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statDone">0</span>
+                        <span class="stat-label">Tâches terminées</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon orange"><i class="fas fa-clock"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statPending">0</span>
+                        <span class="stat-label">En cours</span>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon red"><i class="fas fa-exclamation-triangle"></i></div>
+                    <div class="stat-info">
+                        <span class="stat-number" id="statOverdue">0</span>
+                        <span class="stat-label">En retard</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="dashboard-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Projets récents</h2>
+                        <button class="btn btn-sm btn-outline" onclick="navigateTo('projects')">Voir tout</button>
+                    </div>
+                    <div class="card-body" id="recentProjects"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>Tâches urgentes</h2>
+                        <button class="btn btn-sm btn-outline" onclick="navigateTo('tasks')">Voir tout</button>
+                    </div>
+                    <div class="card-body" id="urgentTasks"></div>
+                </div>
+            </div>
+
+            <div class="card mt-20">
+                <div class="card-header">
+                    <h2>Activité récente</h2>
+                </div>
+                <div class="card-body" id="recentActivity"></div>
+            </div>
+
+            <div class="dashboard-charts mt-20">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-chart-bar"></i> Progression des projets actifs</h2>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartProjectProgress" height="80"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-chart-pie"></i> Répartition des tâches</h2>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartTaskDistribution" height="80"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PROJECTS PAGE -->
+        <section class="page" id="page-projects">
+            <div class="page-controls">
+                <div class="filter-group">
+                    <select id="filterProjectStatus" onchange="renderProjects()">
+                        <option value="all">Tous les statuts</option>
+                        <option value="en cours">En cours</option>
+                        <option value="terminé">Terminé</option>
+                        <option value="en pause">En pause</option>
+                        <option value="planifié">Planifié</option>
+                    </select>
+                    <select id="filterProjectPriority" onchange="renderProjects()">
+                        <option value="all">Toutes priorités</option>
+                        <option value="haute">Haute</option>
+                        <option value="moyenne">Moyenne</option>
+                        <option value="basse">Basse</option>
+                    </select>
+                </div>
+                <div class="view-toggle">
+                    <button class="view-btn active" id="viewGrid" onclick="setProjectView('grid')"><i class="fas fa-th"></i></button>
+                    <button class="view-btn" id="viewList" onclick="setProjectView('list')"><i class="fas fa-list"></i></button>
+                </div>
+            </div>
+            <div class="projects-container grid-view" id="projectsContainer"></div>
+        </section>
+
+        <!-- TASKS PAGE -->
+        <section class="page" id="page-tasks">
+            <div class="page-controls">
+                <div class="filter-group">
+                    <select id="filterTaskProject" onchange="renderTasks()">
+                        <option value="all">Tous les projets</option>
+                    </select>
+                    <select id="filterTaskStatus" onchange="renderTasks()">
+                        <option value="all">Tous les statuts</option>
+                        <option value="à faire">À faire</option>
+                        <option value="en cours">En cours</option>
+                        <option value="terminé">Terminé</option>
+                    </select>
+                    <select id="filterTaskPriority" onchange="renderTasks()">
+                        <option value="all">Toutes priorités</option>
+                        <option value="haute">Haute</option>
+                        <option value="moyenne">Moyenne</option>
+                        <option value="basse">Basse</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- KANBAN -->
+            <div class="kanban-board" id="kanbanBoard">
+                <div class="kanban-col" id="col-todo">
+                    <div class="kanban-col-header">
+                        <span class="col-title">À faire</span>
+                        <span class="col-count" id="count-todo">0</span>
+                    </div>
+                    <div class="kanban-cards" id="cards-todo" ondragover="allowDrop(event)" ondrop="drop(event, 'à faire')"></div>
+                </div>
+                <div class="kanban-col" id="col-inprogress">
+                    <div class="kanban-col-header">
+                        <span class="col-title">En cours</span>
+                        <span class="col-count" id="count-inprogress">0</span>
+                    </div>
+                    <div class="kanban-cards" id="cards-inprogress" ondragover="allowDrop(event)" ondrop="drop(event, 'en cours')"></div>
+                </div>
+                <div class="kanban-col" id="col-done">
+                    <div class="kanban-col-header">
+                        <span class="col-title">Terminé</span>
+                        <span class="col-count" id="count-done">0</span>
+                    </div>
+                    <div class="kanban-cards" id="cards-done" ondragover="allowDrop(event)" ondrop="drop(event, 'terminé')"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TEAM PAGE -->
+        <section class="page" id="page-team">
+            <div class="team-grid" id="teamGrid"></div>
+        </section>
+
+        <!-- CALENDAR PAGE -->
+        <section class="page" id="page-calendar">
+            <div class="calendar-container">
+                <div class="calendar-header">
+                    <button class="btn btn-outline" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
+                    <h2 id="calendarTitle"></h2>
+                    <button class="btn btn-outline" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+                </div>
+                <div class="calendar-grid">
+                    <div class="calendar-day-name">Lun</div>
+                    <div class="calendar-day-name">Mar</div>
+                    <div class="calendar-day-name">Mer</div>
+                    <div class="calendar-day-name">Jeu</div>
+                    <div class="calendar-day-name">Ven</div>
+                    <div class="calendar-day-name">Sam</div>
+                    <div class="calendar-day-name">Dim</div>
+                </div>
+                <div class="calendar-days" id="calendarDays"></div>
+            </div>
+            <div class="card mt-20">
+                <div class="card-header"><h2>Événements du mois</h2></div>
+                <div class="card-body" id="calendarEvents"></div>
+            </div>
+        </section>
+
+        <!-- ANALYTICS PAGE -->
+        <section class="page" id="page-analytics">
+            <div class="analytics-grid">
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-chart-bar"></i> Progression des projets</h2>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartProjectProgress" height="80"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-chart-pie"></i> Répartition des tâches</h2>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartTaskDistribution" height="80"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-users"></i> Charge de travail</h2>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartWorkload" height="80"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2><i class="fas fa-clock"></i> Activité (30 derniers jours)</h2>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="chartActivity" height="80"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TIMELINE PAGE -->
+        <section class="page" id="page-timeline">
+            <div class="card">
+                <div class="card-header">
+                    <h2><i class="fas fa-chart-gantt"></i> Timeline Gantt des projets</h2>
+                    <p style="color: var(--text-light); font-size: 0.9rem; margin-top: 4px;">
+                        Vue chronologique des projets en cours
+                    </p>
+                </div>
+                <div class="card-body" style="overflow-x: auto;">
+                    <div id="ganttContainer"></div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- MODALS -->
+
+    <!-- Modal Projet -->
+    <div class="modal-overlay" id="modalProject">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalProjectTitle">Nouveau projet</h2>
+                <button class="modal-close" onclick="closeModal('modalProject')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formProject">
+                    <input type="hidden" id="projectId">
+                    <div class="form-group">
+                        <label>Nom du projet *</label>
+                        <input type="text" id="projectName" placeholder="Ex: Refonte site web" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="projectDesc" placeholder="Description du projet..." rows="3"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Statut</label>
+                            <select id="projectStatus">
+                                <option value="planifié">Planifié</option>
+                                <option value="en cours">En cours</option>
+                                <option value="en pause">En pause</option>
+                                <option value="terminé">Terminé</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Priorité</label>
+                            <select id="projectPriority">
+                                <option value="basse">Basse</option>
+                                <option value="moyenne">Moyenne</option>
+                                <option value="haute">Haute</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date de début</label>
+                            <input type="date" id="projectStart">
+                        </div>
+                        <div class="form-group">
+                            <label>Date de fin</label>
+                            <input type="date" id="projectEnd">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Date de mise en production (MEP) 🚀</label>
+                        <input type="date" id="projectRelease">
+                        <small style="color: var(--text-light); font-size: 0.85rem; display: block; margin-top: 4px;">
+                            Date de déploiement en production (optionnel)
+                        </small>
+                    </div>
+                    <div class="form-group">
+                        <label>Membres de l'équipe</label>
+                        <div class="member-checkboxes" id="memberCheckboxes"></div>
+                    </div>
+                    <div class="form-group">
+                        <label>Couleur du projet</label>
+                        <div class="color-picker" id="colorPicker">
+                            <div class="color-option selected" data-color="#4f46e5" style="background:#4f46e5"></div>
+                            <div class="color-option" data-color="#10b981" style="background:#10b981"></div>
+                            <div class="color-option" data-color="#f59e0b" style="background:#f59e0b"></div>
+                            <div class="color-option" data-color="#ef4444" style="background:#ef4444"></div>
+                            <div class="color-option" data-color="#8b5cf6" style="background:#8b5cf6"></div>
+                            <div class="color-option" data-color="#06b6d4" style="background:#06b6d4"></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalProject')">Annuler</button>
+                <button class="btn btn-primary" onclick="saveProject()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Tâche -->
+    <div class="modal-overlay" id="modalTask">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalTaskTitle">Nouvelle tâche</h2>
+                <button class="modal-close" onclick="closeModal('modalTask')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formTask">
+                    <input type="hidden" id="taskId">
+                    <div class="form-group">
+                        <label>Nom de la tâche *</label>
+                        <input type="text" id="taskName" placeholder="Ex: Créer la maquette" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Description</label>
+                        <textarea id="taskDesc" placeholder="Description de la tâche..." rows="2"></textarea>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Projet</label>
+                            <select id="taskProject"></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Assigné à</label>
+                            <select id="taskAssignee"></select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Statut</label>
+                            <select id="taskStatus">
+                                <option value="à faire">À faire</option>
+                                <option value="en cours">En cours</option>
+                                <option value="terminé">Terminé</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Priorité</label>
+                            <select id="taskPriority">
+                                <option value="basse">Basse</option>
+                                <option value="moyenne">Moyenne</option>
+                                <option value="haute">Haute</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Date d'échéance</label>
+                            <input type="date" id="taskDue">
+                        </div>
+                        <div class="form-group">
+                            <label>Progression (%)</label>
+                            <input type="number" id="taskProgress" min="0" max="100" value="0">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalTask')">Annuler</button>
+                <button class="btn btn-primary" onclick="saveTask()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Membre -->
+    <div class="modal-overlay" id="modalMember">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 id="modalMemberTitle">Nouveau membre</h2>
+                <button class="modal-close" onclick="closeModal('modalMember')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <form id="formMember">
+                    <input type="hidden" id="memberId">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Prénom *</label>
+                            <input type="text" id="memberFirstName" placeholder="Jean" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Nom *</label>
+                            <input type="text" id="memberLastName" placeholder="Dupont" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email *</label>
+                        <input type="email" id="memberEmail" placeholder="jean.dupont@email.com" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Rôle</label>
+                        <input type="text" id="memberRole" placeholder="Ex: Développeur Frontend">
+                    </div>
+                    <div class="form-group">
+                        <label>Département</label>
+                        <select id="memberDept">
+                            <option value="développement">Développement</option>
+                            <option value="design">Design</option>
+                            <option value="marketing">Marketing</option>
+                            <option value="management">Management</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline" onclick="closeModal('modalMember')">Annuler</button>
+                <button class="btn btn-primary" onclick="saveMember()">Enregistrer</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast"></div>
+
+    <!-- Scripts - Modèles -->
+    <script src="js/models/Project.js"></script>
+    <script src="js/models/Task.js"></script>
+    <script src="js/models/Member.js"></script>
+
+    <!-- Scripts - Store -->
+    <script src="js/store/Store.js"></script>
+
+    <!-- Scripts - Services -->
+    <script src="js/services/StorageService.js"></script>
+    <script src="js/services/NotificationService.js"></script>
+    <script src="js/services/ChartService.js"></script>
+    <script src="js/services/ThemeService.js"></script>
+
+    <!-- Scripts - Utils -->
+    <script src="js/utils/helpers.js"></script>
+    <script src="js/utils/templates.js"></script>
+
+    <!-- Scripts - Components -->
+    <script src="js/components/GanttTimeline.js"></script>
+    <script src="js/components/SearchComponent.js"></script>
+
+    <!-- Application principale -->
+    <script src="js/app-new.js"></script>
+</body>
+</html>
